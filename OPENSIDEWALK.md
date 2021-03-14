@@ -2,32 +2,131 @@
 
 - Read [README.md](README.md), [INSTALL.md](INSTALL.md), and [DOCKER.md](DOCKER.md)
 
-# Install
+# Azure Environment Setup
 
-1. git clone --depth=1 https://github.com/openstreetmap/openstreetmap-website.git
-1. Follow from Docker instructions: [DOCKER.md](DOCKER.md)
-1. Modify database.yml uncomment username, password, host from all three.  change host to `db` and username password for test and production to openstreetmap
-1. run `docker-pull mailhog/mailhog`
-1. Change settings.yml (maybe add to settings.local.yml) and add       
-    * smtp_address: "mailhog"
-    * smtp_port: 1025
-1. add mailhog to docker-compose.yml
-```
-   mailhog:
-    image: mailhog/mailhog
-    logging:
-      driver: 'none'  # disable saving logs
-    ports:
-      - 1025:1025 # smtp server
-      - 8025:8025 # web ui
-```
-1. add mailhog as a dependency of web in docker-compose  (can this be switched to sendgrid?)
-1. update openstreetmap-website/app/assets/javascripts/edit/id.js.erb
- change line 6 to URL
-1. run docker-compose build and up from Docker.md
-1. Before Migrations run db:create, btree, and functions installs from Install.md using `docker exec db bash`
-1.  run db:migrate from Docker.md
-1.  instead of wget, run `curl -g https://download.geofabrik.de/north-america/us/district-of-columbia-latest.osm.pbf >> district-of-columbia-latest.osm.pbf`
-1.  run docker osmosis
-1.  launch http://localhost:3000
-1.  register and create an account, check http://localhost:8025 for verification email link.  (is there a setting for the url in the registration email?)
+## Prequistes
+* Already created Azure tenant, subscription, & resource group
+* Azure CLI  (https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
+
+## VM Setup
+1. Create an Ubuntu VM using Azure CLI.
+    ```
+    az vm create \
+      --resource-group <existing-resource-group> \
+      --name <vm-name> \
+      --nsg <network-security-group-name> \
+      --admin-username <admin-username> \
+      --admin-password <admin-password> \
+      --image UbuntuLTS \
+      --authentication-type password \
+      --public-ip-address-allocation static
+    ```
+    Replace the following:
+    * <b>\<existing-resource-group>:</b> Name of the resource group you want to create the VM under. Replace 
+    * <b>\<vm-name>:</b> Desired name for VM.
+    * <b>\<network-security-group-name>:</b> Desired name for the network security group.
+    * <b>\<admin-username>:</b> Admin username.
+    * <b>\<admin-password>:</b> Admin password.
+
+    After a few minutes you should get an output showing VM metadata. The following example shows a VM operation was successful (make note of the public IP address):
+    ```
+    {
+      "fqdns": "",
+      "id": "/subscriptions/<guid>/resourceGroups/<existsing-resource-group>/providers/Microsoft.Compute/virtualMachines/<vm-name>",
+      "location": "eastus",
+      "macAddress": "00-0D-3A-23-9A-49",
+      "powerState": "VM running",
+      "privateIpAddress": "10.0.0.4",
+      "publicIpAddress": "40.68.254.142",
+      "resourceGroup": "<existsing-resource-group>"
+    }
+    ```
+
+1. SSH Into VM using SSH client of your choice confirm connectivity using the credentials specified in step #1.
+
+1. Open the appropriate ports on the VM. Replace the following:
+    * <b>\<existing-resource-group>:</b> Name of the resource group you want to create the VM under. Replace 
+    * <b>\<network-security-group-name>:</b> Name for the network security group specified in step #1.
+
+    ```
+    az network nsg rule create \
+      --resource-group <existing-resource-group> \
+      --nsg-name <network-security-group-name> \
+      --name OSM-WEB-PORT \
+      --protocol tcp \
+      --priority 1100 \
+      --destination-port-range 3000
+    ```
+
+    ```
+    az network nsg rule create \
+      --resource-group <existing-resource-group> \
+      --nsg-name <network-security-group-name> \
+      --name OSM-SMTP-PORT \
+      --protocol tcp \
+      --priority 1300 \
+      --destination-port-range 8025
+    ```
+
+## Configure DNS
+
+
+# Install  OSM
+## Prequistes
+* An already existing VM you can SSH into. See [Azure Environment Setup](#azure-environment-setup) for steps.
+* Open TCP Ports on 3000 & 8025
+
+## Instructions
+1. SSH into Azure VM using SSH client of your choice.
+
+1. Become Root:
+    ```
+    sudo -i
+    ```
+
+1. Clone repository:
+    ```
+    git clone --depth=1 https://github.com/bendewey/openstreetmap-website.git
+    ```
+
+1. Install  [Install Docker](https://docs.docker.com/install/) & [Install Docker Compose](https://docs.docker.com/compose/install/)
+
+1. Change working directory to the `openstreetmap-website`:
+
+    ```
+    cd openstreetmap-website
+    ```
+
+1. Follow from Docker instructions: [DOCKER.md](DOCKER.md#user-content-initial-setup)
+
+1. Open the `settings.local.yml` file:
+    ```
+    nano config/settings.local.yml
+    ```
+
+1. Add the following configurations and save:
+    ```
+    smtp_address: "mailhog"
+    smtp_port: 1025
+    server_url: <vm-public-ip>:3000
+    ```
+    * Replace the `<vm-public-ip>` with the public ip address for the Azure VM.
+
+1. Restart docker-compose services:
+    ```
+    docker-compose restart
+    ```
+
+1.  Launch `http://<vm-public-ip>:3000`
+    * Replace the `<vm-public-ip>` with the public ip address for the Azure VM.
+1.  Register and create an account, check `http://<vm-public-ip>:8025` for verification email link.  (is there a setting for the url in the registration email?)
+    * Replace the `<vm-public-ip>` with the public ip address for the Azure VM.
+
+1. Configure OAuth Consumer Keys. Refer to [CONFIGURE.md](CONFIGURE.md#oauth-consumer-keys) for steps.
+    * There are two bullets that state: 
+    </br>
+    `"Check the 'modify the map' box"` AND `"Everything else can be left with the default blank values."` </br>
+    Instead of following those steps check all the boxes, otherwise, you will get an error when attempting to edit the map using the iD editor.
+    * Replace all instances of `http://localhost:3000` with `http://<vm-public-ip>:3000`
+
+13. Edit the map and confirm you can save.
