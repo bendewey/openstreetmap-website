@@ -106,8 +106,6 @@
 
 1. Add the following configurations and save:
     ```
-    smtp_address: "mailhog"
-    smtp_port: 1025
     server_url: <vm-public-ip>:3000
     ```
     * Replace the `<vm-public-ip>` with the public ip address for the Azure VM.
@@ -119,8 +117,8 @@
 
 1.  Launch `http://<vm-public-ip>:3000`
     * Replace the `<vm-public-ip>` with the public ip address for the Azure VM.
-1.  Register and create an account, check `http://<vm-public-ip>:8025` for verification email link.  (is there a setting for the url in the registration email?)
-    * Replace the `<vm-public-ip>` with the public ip address for the Azure VM.
+
+1.  Register and create an account, check your email address for verification email link.
 
 1. Configure OAuth Consumer Keys. Refer to [CONFIGURE.md](CONFIGURE.md#oauth-consumer-keys) for steps.
     * There are two bullets that state: 
@@ -129,4 +127,4 @@
     Instead of following those steps check all the boxes, otherwise, you will get an error when attempting to edit the map using the iD editor.
     * Replace all instances of `http://localhost:3000` with `http://<vm-public-ip>:3000`
 
-13. Edit the map and confirm you can save.
+1. Edit the map and confirm you can save.
